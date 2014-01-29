@@ -8,7 +8,7 @@ var RSVP = require('rsvp');
 var uuid = require('node-uuid');
 
 var ENV = {
-  FIREWORK_URL: "http://10.0.10.117:3005/",
+  FIREWORK_URL: "",
   GERRIT_PROJECT: "foo",
   GERRIT_PATCHSET_NUMBER: "1",
   GERRIT_CHANGE_URL: "WAT",
