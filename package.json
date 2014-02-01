@@ -1,7 +1,7 @@
 {
   "name": "karma-firework-reporter",
   "version": "0.1.1",
-  "description": "",
+  "description": "Karma reporter for Firework analytics tool",
   "main": "index.js",
   "author": "",
   "license": "MIT",
