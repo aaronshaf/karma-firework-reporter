@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "description": "Karma reporter for Firework analytics tool",
   "main": "index.js",
-  "author": "",
+  "author": "Aaron Shafovaloff",
   "license": "MIT",
   "dependencies": {
     "request": "~2.33.0",
