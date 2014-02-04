@@ -67,7 +67,7 @@ var FireworkReporter = function(baseReporterDecorator, config, logger, helper, f
     var promise = new RSVP.Promise(function(resolve,reject) {
       request({
         method: 'POST',
-        url: ENV.FIREWORK_URL,
+        url: ENV.FIREWORK_URL.replace(/\/?$/, '') + '/api/result_batch',
         body: JSON.stringify(collector)
       }, function(error, response, body) {
         resolve();
