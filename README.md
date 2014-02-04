@@ -1,2 +1,5 @@
-karma-firework-reporter
-=======================
+## Install
+
+```
+npm install
+```
