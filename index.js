@@ -43,7 +43,8 @@ var FireworkReporter = function(config) {
     };
 
     if (result.skipped) {
-      result.success = null;
+      delete result.success;
+      result.details = "pending";
     }
     else if (!result.success) {
       if (result.log && result.log.length > 0) {
