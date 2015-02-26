@@ -17,7 +17,7 @@ var FireworkReporter = function(baseReporterDecorator, config, logger, helper, f
 
   // this.onBrowserStart = function(browser) {
   // };
-
+  var origOnRunStart = this.onRunStart || function() {};
   this.onRunStart = function(browsers) {
     suites = Object.create(null);
 
@@ -39,6 +39,7 @@ var FireworkReporter = function(baseReporterDecorator, config, logger, helper, f
       if (ENV.BUILD_NUMBER) collector.build.ci_build_id = ENV.BUILD_NUMBER;
       if (ENV.BUILD_URL) collector.build.url = ENV.BUILD_URL;
     }
+    origOnRunStart.apply(this, arguments);
   }
 
   this.onSpecComplete = function(browser, result) {
