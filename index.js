@@ -33,22 +33,22 @@ var FireworkReporter = function(config) {
     }
   }
 
-  this.onSpecComplete = function(browser, result) {
+  this.onSpecComplete = function(browser, browserResult) {
     var fireworkResult = {
-      success: result.success,
+      success: browserResult.success,
       environment: browser.name,
-      test: result.description,
-      context: result.suite,
+      test: browserResult.description,
+      context: browserResult.suite,
       duration_ms: browser.lastResult.netTime,
     };
 
-    if (result.skipped) {
-      delete result.success;
-      result.details = "pending";
+    if (browserResult.skipped) {
+      fireworkResult.success = null;
+      fireworkResult.details = "pending";
     }
-    else if (!result.success) {
-      if (result.log && result.log.length > 0) {
-        extend(fireworkResult, adapter(result.log[0]));
+    else if (!browserResult.success) {
+      if (browserResult.log && browserResult.log.length > 0) {
+        extend(fireworkResult, adapter(browserResult.log[0]));
       }
     }
 
