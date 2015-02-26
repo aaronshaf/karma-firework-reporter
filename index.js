@@ -42,7 +42,10 @@ var FireworkReporter = function(config) {
       duration_ms: browser.lastResult.netTime,
     };
 
-    if (!result.success && !result.skipped) {
+    if (result.skipped) {
+      result.success = null;
+    }
+    else if (!result.success) {
       if (result.log && result.log.length > 0) {
         extend(fireworkResult, adapter(result.log[0]));
       }
