@@ -1,18 +1,19 @@
 {
   "name": "karma-firework-reporter",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "Karma reporter for Firework analytics tool",
   "main": "index.js",
   "author": "Aaron Shafovaloff",
   "license": "MIT",
   "scripts": {
-    "lint": "./node_modules/jshint/bin/jshint index.js"
+    "lint": "./node_modules/jshint/bin/jshint index.js lib",
+    "test": "./node_modules/mocha/bin/mocha"
   },
   "dependencies": {
     "request": "~2.33.0",
-    "rsvp": "~3.0.3",
     "lodash": "~2.4.1",
-    "qunit-parser": "~0.2.0"
+    "qunit-parser": "~0.2.0",
+    "karma": "0.12.x"
   },
   "bugs": {
     "url": "https://github.com/aaronshaf/karma-firework-reporter/issues"
@@ -23,6 +24,9 @@
   },
   "homepage": "https://github.com/aaronshaf/karma-firework-reporter",
   "devDependencies": {
-    "jshint": "~2.4.3"
+    "chai": "2.1.0",
+    "jshint": "2.6.0",
+    "mocha": "2.1.0",
+    "sinon": "^1.12.2"
   }
 }
