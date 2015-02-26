@@ -1,92 +1,90 @@
-// For examples
-// https://github.com/karma-runner/karma/blob/master/lib/reporters/base.js
-// https://github.com/karma-runner/karma-junit-reporter/blob/master/index.js
-// https://github.com/karma-runner/karma-growl-reporter/blob/master/index.js
-
 var request = require('request');
-var RSVP = require('rsvp');
-var QUnitParser = require('qunit-parser');
-var _ = require('lodash');
+var Collector = require('./lib/Collector');
+var extend = require('lodash').extend;
+var request = require('request');
 var ENV = process.env;
+var NOOP = function() {};
 
-var FireworkReporter = function(baseReporterDecorator, config, logger, helper, formatError) {
-  var collector;
-  var queue = new RSVP.Promise(function(resolve,reject) {resolve()});
+var defaults = {
+  fireworkUrl: ENV.FIREWORK_URL
+};
 
-  baseReporterDecorator(this);
+var FireworkReporter = function(config, logLevel, emitter, karmaLogger, helper) {
+  var collector, adapter;
+  var done = NOOP;
+  var isPostingResults = false;
+  var logger = karmaLogger.create("karma-firework", logLevel);
 
-  // this.onBrowserStart = function(browser) {
-  // };
+  function postResults(done) {
+    isPostingResults = true;
+    emitter.emit('firework_submitting');
+    logger.info('submitting ' + collector.getSize() + ' results to Firework...');
 
-  this.onRunStart = function(browsers) {
-    suites = Object.create(null);
-
-    collector = {
-      project: ENV.GERRIT_PROJECT,
-      results: []
-    };
-
-    if (ENV.GERRIT_CHANGE_NUMBER) {
-      collector.run = {};
-      collector.run.gerrit_change_id = ENV.GERRIT_CHANGE_NUMBER;
-      if (ENV.GERRIT_PATCHSET_NUMBER) collector.run.gerrit_change_patchset = ENV.GERRIT_PATCHSET_NUMBER;
-      if (ENV.GERRIT_CHANGE_URL) collector.run.url = ENV.GERRIT_CHANGE_URL;
-    }
-
-    if (ENV.JOB_NAME) {
-      collector.build = {};
-      collector.build.ci_project = ENV.JOB_NAME;
-      if (ENV.BUILD_NUMBER) collector.build.ci_build_id = ENV.BUILD_NUMBER;
-      if (ENV.BUILD_URL) collector.build.url = ENV.BUILD_URL;
-    }
+    request.post({
+      url: config.fireworkUrl.replace(/\/?$/, '') + '/api/result_batch',
+      body: collector.toJSON()
+    }, function(/*error, response, body*/) {
+      logger.info('results have been submitted.');
+      emitter.emit('firework_submitted');
+      isPostingResults = false;
+      done();
+    });
   }
 
-  this.onSpecComplete = function(browser, result) {
-    var collectorResult = _.pick(result,'success');
-    collectorResult.test = result.description;
-    collectorResult.browser = browser.name;
-    collectorResult.duration_ms = browser.lastResult.netTime;
-    collectorResult.context = result.suite;
+  config = extend({}, defaults, config);
 
-    if(!result.success) {
-      var parsedLog = QUnitParser.parseLog(result.log[0]);
-      _.assign(collectorResult,_.pick(parsedLog,'actual','expected','backtrace'));
-      collectorResult.details = parsedLog.description;
-    }
+  if (!helper.isDefined(config.fireworkUrl)) {
+    throw new Error('Firework URL must be set.');
+  }
 
-    collector.results.push(collectorResult);
+  switch(config.framework) {
+    case 'mocha':
+      adapter = require('./lib/MochaAdapter');
+    break;
+
+    case 'qunit':
+      adapter = require('./lib/QUnitAdapter');
+    break;
+
+    case null:
+    case undefined:
+      adapter = require('./lib/GenericAdapter');
+    break;
+
+    default:
+      throw new Error("Unknown test framework '" + config.framework + "'");
+  }
+
+  this.onRunStart = function(/*browsers*/) {
+    collector = new Collector(adapter);
   };
 
-  // this.onBrowserError = function(browser, error) {
-  // };
-
-  // this.onBrowserLog = function(browser, log, type) {
-  // };
-
-  this.postResults = function() {
-    var promise = new RSVP.Promise(function(resolve,reject) {
-      request({
-        method: 'POST',
-        url: ENV.FIREWORK_URL.replace(/\/?$/, '') + '/api/result_batch',
-        body: JSON.stringify(collector)
-      }, function(error, response, body) {
-        resolve();
-      });      
-    });
-    collector = null;
-    return promise;
+  this.onSpecComplete = function(browser, result) {
+    collector.gather(browser, result);
   };
 
   this.onRunComplete = function() {
-    queue.then(this.postResults);
+    postResults(done);
+    collector = null;
   };
 
-  this.onExit = function(done) {
-    queue.then(done);
+  this.onExit = function(karmaDone) {
+    if (isPostingResults) {
+      done = karmaDone;
+    }
+    else {
+      karmaDone();
+    }
   };
 };
 
-FireworkReporter.$inject = ['baseReporterDecorator', 'config', 'logger', 'helper', 'formatError'];
+FireworkReporter.$inject = [
+  'config.fireworkReporter',
+  'config.logLevel',
+  'emitter',
+  'logger',
+  'helper',
+];
 
 module.exports = {
   'reporter:firework': ['type', FireworkReporter]
