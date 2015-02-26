@@ -1,6 +1,6 @@
 {
   "name": "karma-firework-reporter",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Karma reporter for Firework analytics tool",
   "main": "index.js",
   "author": "Aaron Shafovaloff",
