@@ -1,90 +1,62 @@
-var request = require('request');
-var Collector = require('./lib/Collector');
+var FireworkClient = require('./lib/FireworkClient');
 var extend = require('lodash').extend;
-var request = require('request');
-var ENV = process.env;
-var NOOP = function() {};
 
 var defaults = {
-  fireworkUrl: ENV.FIREWORK_URL
+  fireworkUrl: process.env.FIREWORK_URL,
+  fireworkDatabase: process.env.FIREWORK_REPORTER_DB,
+  fireworkClientPath: 'firework_client'
 };
 
-var FireworkReporter = function(config, logLevel, emitter, karmaLogger, helper) {
-  var collector, adapter;
-  var done = NOOP;
-  var isPostingResults = false;
-  var logger = karmaLogger.create("karma-firework", logLevel);
-
-  function postResults(done) {
-    isPostingResults = true;
-    emitter.emit('firework_submitting');
-    logger.info('submitting ' + collector.getSize() + ' results to Firework...');
-
-    request.post({
-      url: config.fireworkUrl.replace(/\/?$/, '') + '/api/result_batch',
-      body: collector.toJSON()
-    }, function(/*error, response, body*/) {
-      logger.info('results have been submitted.');
-      emitter.emit('firework_submitted');
-      isPostingResults = false;
-      done();
-    });
-  }
+var FireworkReporter = function(config) {
+  var client;
+  var adapter = require('./lib/GenericAdapter');
 
   config = extend({}, defaults, config);
+  client = new FireworkClient({
+    db: config.fireworkDatabase,
+    url: config.fireworkUrl,
+    path: config.fireworkClientPath
+  });
 
-  if (!helper.isDefined(config.fireworkUrl)) {
-    throw new Error('Firework URL must be set.');
+  if (config.framework) {
+    switch(config.framework) {
+      case 'mocha':
+        adapter = require('./lib/MochaAdapter');
+      break;
+
+      case 'qunit':
+        adapter = require('./lib/QUnitAdapter');
+      break;
+
+      default:
+        throw new Error("Unknown test framework '" + config.framework + "'");
+    }
   }
-
-  switch(config.framework) {
-    case 'mocha':
-      adapter = require('./lib/MochaAdapter');
-    break;
-
-    case 'qunit':
-      adapter = require('./lib/QUnitAdapter');
-    break;
-
-    case null:
-    case undefined:
-      adapter = require('./lib/GenericAdapter');
-    break;
-
-    default:
-      throw new Error("Unknown test framework '" + config.framework + "'");
-  }
-
-  this.onRunStart = function(/*browsers*/) {
-    collector = new Collector(adapter);
-  };
 
   this.onSpecComplete = function(browser, result) {
-    collector.gather(browser, result);
+    var fireworkResult = {
+      success: result.success,
+      environment: browser.name,
+      test: result.description,
+      context: result.suite,
+      duration_ms: browser.lastResult.netTime,
+    };
+
+    if (!result.success && !result.skipped) {
+      if (result.log && result.log.length > 0) {
+        extend(fireworkResult, adapter(result.log[0]));
+      }
+    }
+
+    client.send(fireworkResult);
   };
 
-  this.onRunComplete = function() {
-    postResults(done);
-    collector = null;
-  };
-
-  this.onExit = function(karmaDone) {
-    if (isPostingResults) {
-      done = karmaDone;
-    }
-    else {
-      karmaDone();
-    }
+  this.onExit = function(done) {
+    client.close(done);
   };
 };
 
-FireworkReporter.$inject = [
-  'config.fireworkReporter',
-  'config.logLevel',
-  'emitter',
-  'logger',
-  'helper',
-];
+FireworkReporter.$inject = [ 'config.fireworkReporter' ];
 
 module.exports = {
   'reporter:firework': ['type', FireworkReporter]

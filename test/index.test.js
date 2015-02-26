@@ -1,17 +1,11 @@
-var sinon = require("sinon");
-var request = require("request");
 var Subject = require("../index");
 var expect = require("chai").expect;
-var events = require("karma/lib/events");
-var logger = require("karma/lib/logger");
+var exec = require('child_process').exec;
 
 describe("karma-firework-reporter", function() {
   var subject;
-  var emitter = new events.EventEmitter();
   var createSubject = function(config) {
-    return new Subject['reporter:firework'][1](config, null, emitter, logger,
-      require("karma/lib/helper")
-    );
+    return new Subject['reporter:firework'][1](config);
   };
 
   describe("gathering results", function() {
@@ -20,47 +14,31 @@ describe("karma-firework-reporter", function() {
   });
 
   describe("submitting results", function() {
-    var sandbox = sinon.sandbox.create({ useFakeServer: false });
-
-    afterEach(function() {
-      sandbox.restore();
+    before(function() {
+      exec("firework_client -init=./test-db.sqlite");
     });
 
-    it("should work", function() {
-      var postSpy = sandbox.spy(request, "post");
+    after(function() {
+      exec("rm ./test-db.sqlite");
+    });
 
+    it("should work", function(done) {
       subject = createSubject({
-        fireworkUrl: "http://firework.com"
+        fireworkDatabase: "./test-db.sqlite"
       });
 
-      subject.onRunStart();
-      subject.onSpecComplete({
-        name: "Some Browser",
-        lastResult: { netTime: 10 }
-      }, {
-        success: true,
-        description: "it should work",
-        suite: "foo::bar"
-      });
+      expect(function() {
+        subject.onSpecComplete({
+          name: "Some Browser",
+          lastResult: { netTime: 10 }
+        }, {
+          success: true,
+          description: "it should work",
+          suite: "foo::bar"
+        });
+      }).to.not.throw();
 
-      subject.onRunComplete();
-
-      expect(postSpy.called).to.equal(true);
-      expect(postSpy.firstCall.args[0].url).
-        to.equal("http://firework.com/api/result_batch");
-
-      var postedPayload = JSON.parse(postSpy.firstCall.args[0].body);
-      var postedResults = Object.keys(postedPayload);
-
-      expect(postedResults).to.contain("results");
-
-      var postedResult = postedPayload.results[0];
-
-      expect(postedResult["success"]).to.equal(true);
-      expect(postedResult["browser"]).to.equal("Some Browser");
-      expect(postedResult["test"]).to.equal("it should work");
-      expect(postedResult["context"]).to.equal("foo::bar");
-      expect(postedResult["duration_ms"]).to.equal(10);
+      subject.onExit(done);
     });
   });
 });
